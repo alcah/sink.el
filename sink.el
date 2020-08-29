@@ -55,7 +55,7 @@ message is received on port-name")
               (pop smsg)
               (pop smsg)
               (mapcar #'sink--attr->pair (split-string (pop smsg) " "))
-              (string-to-int (pop smsg))
+              (string-to-number (pop smsg))
               (string-join smsg "\n"))))
 
 (defun sink-pmsg-addr (pmsg)
@@ -63,7 +63,7 @@ message is received on port-name")
 else nil if addr does not exist or is unspecified"
   (let ((addr (assoc "addr" (plumbmsg-attr pmsg))))
     (when (and addr (not (string-empty-p (cdr addr))))
-      (string-to-int (cdr addr)))))
+      (string-to-number (cdr addr)))))
 
 ;; TODO: Error checking
 ;; Output from asynchronous processes is not guaranteed to arrive in
