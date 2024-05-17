@@ -1,20 +1,49 @@
-;; sink.el -- receive messages from the plan9 plumber -*- lexical-binding: t -*-
+;;; sink.el --- Receive messages from the plan9 plumber -*- lexical-binding: t -*-
+
+;; Homepage: https://github.com/alcah/sink.el
+
+;; Package-Version: 1.0.0
+
+;; Package-Requires: ((emacs "25.1"))
 
 ;; This is free and unencumbered software released into the public domain.
 
-;;; code
+;;; Commentary:
+;; sink-mode is a global minor mode enabling emacs to recieve and respond to
+;; messages from the plan9 plumber via the latter's ports interface.
 
-(require 'subr-x)
+;;; Code:
 
-(defvar sink-use-frames t
-  "set to nil to open new buffers in windows rather than frames.
-Used in the default edit handler")
+(defun sink-plumb-dwim (start end)
+  "Send either the active region, or the thing at point to the plumber"
+  (interactive "r")
+  (shell-command (format "plumb -s emacs -w %s '%s'"
+                         default-directory
+                         (if (region-active-p)
+                             (buffer-substring start end)
+                           (thing-at-point 'filename)))))
+
+(defun sink-default-edit-handler (pmsg)
+  "open file for editing at given line"
+  (pop-to-buffer (plumbmsg-data pmsg))
+  (when (plumbmsg-attr-addr pmsg)
+    (goto-char (point-min))
+    (forward-line (1- (plumbmsg-attr-addr pmsg)))))
+
 (defvar sink--tracked-ports '()
   "list of processes sink-mode is currently tracking")
 (defvar sink-port-alist '(("edit" . sink-default-edit-handler))
   "list of port-name . function pairs.
 While sink-mode is active function will be evaluated whenever a
-message is received on port-name")
+message is received on port-name.
+
+port-name is a string specifying a plumber port without leading
+namespaces.  eg. \"edit\"
+
+function is a unary function accepting a plumbmsg argument
+
+Note: sink-mode reads sink-port-alist when activated and needs to
+be restarted if modified")
 
 (defun plumbmsg (src dst wdir type attr ndata data)
   "return a new plumbmsg structure"
@@ -41,6 +70,12 @@ message is received on port-name")
   "message data"
   (nth 6 msg))
 
+(defun plumbmsg-attr-addr (pmsg)
+  "return the addr attribute of pmsg as an integer
+else nil if addr does not exist or is unspecified"
+  (let ((addr (assoc "addr" (plumbmsg-attr pmsg))))
+    (when (and addr (not (string-empty-p (cdr addr))))
+      (string-to-number (cdr addr)))))
 
 (defun sink--attr->pair (str)
   "Return a pair of attributes from the given string"
@@ -58,36 +93,22 @@ message is received on port-name")
               (string-to-number (pop smsg))
               (string-join smsg "\n"))))
 
-(defun sink-pmsg-addr (pmsg)
-  "return the addr attribute of pmsg as an integer
-else nil if addr does not exist or is unspecified"
-  (let ((addr (assoc "addr" (plumbmsg-attr pmsg))))
-    (when (and addr (not (string-empty-p (cdr addr))))
-      (string-to-number (cdr addr)))))
-
-;; TODO: Error checking
-;; Output from asynchronous processes is not guaranteed to arrive in
-;; discrete chunks. Large messages may be split over 2 or more calls
-;; to filter. Attach input buffer to each port?
-
-;; NOTE: make-filter returns a function with func bound in its local
-;; environment as a way of avoiding a lookup that would tie the code
-;; to the state of any particular variable -- in this case port-alist.
+;; TODO: Output from asynchronous processes is not guaranteed to arrive as
+;; complete, discrete messages. Large messages may be split over 2 or more calls
+;; to filter.  Could attach an input buffer to each port.
 (defun sink--make-filter (func)
   "return a 2-arg filter function for 9p output.
 Returned function coerces msg string to a plumbmsg structure and
 passes it to func"
   (lambda (process msg)
-    (let ((plumbmsg (sink--string->plumbmsg msg)))
-      (funcall func plumbmsg))))
+    (funcall func (sink--string->plumbmsg msg))))
 
-
-(defun sink-close-port (proc)
+(defun sink--close-port (proc)
   "kill the given process"
   (when (process-live-p proc)
     (interrupt-process proc)))
 
-(defun sink-open-port (ppair)
+(defun sink--open-port (ppair)
   "return a new 9p process from the given port pair
 ppair is name . function"
   (make-process :name (concat "9p " (car ppair)) :buffer 'nil
@@ -96,31 +117,20 @@ ppair is name . function"
                 :connection-type 'pipe
                 :filter (sink--make-filter (cdr ppair))))
 
+;;;###autoload
 (define-minor-mode sink-mode
   "Toggle sink-mode\n
 When sink-mode is active Emacs will listen
 and respond to messages from the plan9 plumber"
+  :group 'sink
   :init-value nil
   :lighter " ╚╦"
   :keymap nil
   :global t
   (if sink-mode
-      (progn (mapc #'sink-close-port sink--tracked-ports)
-             (setq sink--tracked-ports (mapcar #'sink-open-port sink-port-alist)))
+      (progn (mapc #'sink--close-port sink--tracked-ports)
+             (setq sink--tracked-ports (mapcar #'sink--open-port sink-port-alist)))
     (setq sink--tracked-ports (mapcar #'sink-close-port sink--tracked-ports))))
-
-(defun sink-default-edit-handler (pmsg)
-  "default handler for messages on edit port"
-  (let* ((fname (plumbmsg-data pmsg))
-         (buf (get-file-buffer fname))
-         (win (get-buffer-window buf t)))
-    (if (and buf win)
-        (select-window win)
-      (if sink-use-frames
-          (find-file-other-frame fname)
-        (find-file-other-window fname)))
-    (when (sink-pmsg-addr pmsg)
-      (goto-line (sink-pmsg-addr pmsg)))))
 
 (provide 'sink)
 
