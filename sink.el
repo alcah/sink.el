@@ -9,13 +9,13 @@
 ;; This is free and unencumbered software released into the public domain.
 
 ;;; Commentary:
-;; sink-mode is a global minor mode enabling emacs to recieve and respond to
+;; sink-mode is a global minor mode enabling Emacs to recieve and respond to
 ;; messages from the plan9 plumber via the latter's ports interface.
 
 ;;; Code:
 
 (defun sink-plumb-dwim (start end)
-  "Send either the active region, or the thing at point to the plumber"
+  "Send either the active region, or the thing at point to the plumber."
   (interactive "r")
   (shell-command (format "plumb -s emacs -w %s '%s'"
                          default-directory
@@ -24,17 +24,17 @@
                            (thing-at-point 'filename)))))
 
 (defun sink-default-edit-handler (pmsg)
-  "open file for editing at given line"
+  "Open file for editing at given line."
   (pop-to-buffer (plumbmsg-data pmsg))
   (when (plumbmsg-attr-addr pmsg)
     (goto-char (point-min))
     (forward-line (1- (plumbmsg-attr-addr pmsg)))))
 
 (defvar sink--tracked-ports '()
-  "list of processes sink-mode is currently tracking")
+  "List of processes `sink-mode' is currently tracking.")
 (defvar sink-port-alist '(("edit" . sink-default-edit-handler))
-  "list of port-name . function pairs.
-While sink-mode is active function will be evaluated whenever a
+  "List of port-name . function pairs.
+While `sink-mode' is active function will be evaluated whenever a
 message is received on port-name.
 
 port-name is a string specifying a plumber port without leading
@@ -46,45 +46,45 @@ Note: sink-mode reads sink-port-alist when activated and needs to
 be restarted if modified")
 
 (defun plumbmsg (src dst wdir type attr ndata data)
-  "return a new plumbmsg structure"
+  "Return a new plumbmsg structure."
   (list src dst wdir type attr ndata data))
 (defun plumbmsg-src (msg)
-  "source of message"
+  "Source of message."
   (car msg))
 (defun plumbmsg-dst (msg)
-  "destination port"
+  "Destination port."
   (cadr msg))
 (defun plumbmsg-wdir (msg)
-  "working directory"
+  "Working directory."
   (nth 2 msg))
 (defun plumbmsg-type (msg)
-  "type of data"
+  "Type of data."
   (nth 3 msg))
 (defun plumbmsg-attr (msg)
-  "attribute list"
+  "Attribute list."
   (nth 4 msg))
 (defun plumbmsg-ndata (msg)
-  "number of data bytes"
+  "Number of data bytes."
   (nth 5 msg))
 (defun plumbmsg-data (msg)
-  "message data"
+  "Message data."
   (nth 6 msg))
 
 (defun plumbmsg-attr-addr (pmsg)
-  "return the addr attribute of pmsg as an integer
-else nil if addr does not exist or is unspecified"
+  "Return the addr attribute of PMSG as an integer.
+Else nil if addr does not exist or is unspecified."
   (let ((addr (assoc "addr" (plumbmsg-attr pmsg))))
     (when (and addr (not (string-empty-p (cdr addr))))
       (string-to-number (cdr addr)))))
 
 (defun sink--attr->pair (str)
-  "Return a pair of attributes from the given string"
+  "Return a pair of attributes from STR."
   (let ((attr (split-string str "=")))
     (cons (car attr) (cadr attr))))
 
-(defun sink--string->plumbmsg (msg)
-  "Return a plumbmsg from the given msg string"
-  (let ((smsg (split-string msg "\n")))
+(defun sink--string->plumbmsg (str)
+  "Parse STR into a plumbmsg."
+  (let ((smsg (split-string str "\n")))
     (plumbmsg (pop smsg)
               (pop smsg)
               (pop smsg)
@@ -104,7 +104,7 @@ passes it to func"
     (funcall func (sink--string->plumbmsg msg))))
 
 (defun sink--close-port (proc)
-  "kill the given process"
+  "Kill PROC."
   (when (process-live-p proc)
     (interrupt-process proc)))
 
