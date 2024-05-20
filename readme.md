@@ -27,24 +27,26 @@ customisation via elisp.
   active function will be called with a parsed plumbing message whenever a
   message is received on the associated port. This is the main point of
   customisation, see inbuilt help for further details.
-* `sink-plumb-dwim` - utility function for plumbing messages from emacs.
+* `sink-plumb` - Send a given string to the plumber.
+* `sink-plumb-dwim` - Send either current region or the filename at point to the
+  plumber.
 
 # Customisation
 User customisation is intended through the `sink-port-alist`
 variable. Handler functions listed in this variable are called with a
-plumbmsg structure as their only argument whenever a message is
-received on the associated port. Ports are named without any leading
+pmsg structure as their only argument whenever a message is
+received on the associated port.  Ports are named without any leading
 directories or namespaces; "edit", not "plumb/edit".
 
-A plumbmsg's components can be accessed through the following functions:
+A pmsg's components can be accessed through the following functions:
 
-* `plumbmsg-src` - source of message - typically the sending program.
-* `plumbmsg-dst` - destination (port) of message.
-* `plumbmsg-wdir` - working directory.
-* `plumbmsg-type` - data type. Usually "text", see the plumb documentation for others.
-* `plumbmsg-attr` - alist of attribute-value pairs. Attribute values are either strings or nil.
-* `plumbmsg-ndata` - number of bytes in data segment.
-* `plumbmsg-data` - message data.
+* `sink-pmsg-src` - Source of message - typically the sending program.
+* `sink-pmsg-dst` - Destination (port) of message.
+* `sink-pmsg-wdir` - Working directory.
+* `sink-pmsg-type` - Data type. Usually "text", see the plumb documentation for others.
+* `sink-pmsg-attr` - Alist of attribute-value pairs. Attribute values are either strings or nil.
+* `sink-pmsg-ndata` - Number of bytes in data segment.
+* `sink-pmsg-data` - Message data.
 
 In addition, the function `plumbmsg-attr-addr` is provided to return the
 value of the addr attribute as an integer (or nil), since it's often used.
