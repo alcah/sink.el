@@ -87,25 +87,35 @@ Else nil if addr does not exist or is unspecified."
     (cons (car attr) (cadr attr))))
 
 (defun sink--string->pmsg (str)
-  "Parse STR into a pmsg."
-  (let ((smsg (split-string str "\n")))
-    (sink-pmsg (pop smsg)
-              (pop smsg)
-              (pop smsg)
-              (pop smsg)
-              (mapcar #'sink--attr->pair (split-string (pop smsg) " "))
-              (string-to-number (pop smsg))
-              (string-join smsg "\n"))))
+  "Parse STR into a pmsg.
+Return nil if actual data size does not match indicated size."
+  (let* ((smsg (split-string str "\n"))
+         (pmsg (sink-pmsg
+                (pop smsg)
+                (pop smsg)
+                (pop smsg)
+                (pop smsg)
+                (mapcar #'sink--attr->pair (split-string (pop smsg) " "))
+                (string-to-number (pop smsg))
+                (string-join smsg "\n"))))
+    (unless (/= (string-bytes (sink-pmsg-data pmsg)) (sink-pmsg-ndata pmsg))
+      pmsg)))
 
 ;; TODO: Output from asynchronous processes is not guaranteed to arrive as
 ;; complete, discrete messages. Large messages may be split over 2 or more calls
 ;; to filter.  Could attach an input buffer to each port.
 (defun sink--make-filter (func)
   "Return a process filter function for 9p output.
-Resulting function coerces msg string to a pmsg structure and
-passes it to FUNC"
-  (lambda (_process msg)
-    (funcall func (sink--string->pmsg msg))))
+Resulting function parses msg string into a pmsg structure and
+passes it to FUNC.
+"
+  (lambda (process msg)
+    (let ((pmsg (sink--string->pmsg msg)))
+      (if pmsg
+          (funcall func (sink--string->pmsg msg))
+        (message "sink: invalid message received on %s: %s"
+                 (process-name process)
+                 msg)))))
 
 (defun sink--close-port (proc)
   "Kill PROC."
@@ -114,7 +124,7 @@ passes it to FUNC"
 
 (defun sink--open-port (ppair)
   "return a new 9p process from the given port pair
-ppair is name . function"
+PPAIR is name . function"
   (make-process :name (concat "9p " (car ppair)) :buffer 'nil
                 :command (list "9p" "read"
                                (concat "plumb/" (car ppair)))
@@ -134,7 +144,7 @@ messages from the plan9 plumber"
   (if sink-mode
       (progn (mapc #'sink--close-port sink--tracked-ports)
              (setq sink--tracked-ports (mapcar #'sink--open-port sink-port-alist)))
-    (setq sink--tracked-ports (mapcar #'sink-close-port sink--tracked-ports))))
+    (setq sink--tracked-ports (mapcar #'sink--close-port sink--tracked-ports))))
 
 (provide 'sink)
 
