@@ -107,8 +107,7 @@ Return nil if actual data size does not match indicated size."
 (defun sink--make-filter (func)
   "Return a process filter function for 9p output.
 Resulting function parses msg string into a pmsg structure and
-passes it to FUNC.
-"
+passes it to FUNC."
   (lambda (process msg)
     (let ((pmsg (sink--string->pmsg msg)))
       (if pmsg
@@ -123,7 +122,7 @@ passes it to FUNC.
     (interrupt-process proc)))
 
 (defun sink--open-port (ppair)
-  "return a new 9p process from the given port pair
+  "Return a new 9p process from the given port pair.
 PPAIR is name . function"
   (make-process :name (concat "9p " (car ppair)) :buffer 'nil
                 :command (list "9p" "read"
@@ -133,8 +132,8 @@ PPAIR is name . function"
 
 ;;;###autoload
 (define-minor-mode sink-mode
-  "Toggle sink-mode.\n
-While sink-mode is active Emacs will listen and respond to
+  "Toggle `sink-mode' on or off.
+Sink is a global minor mode that listens for and acts on
 messages from the plan9 plumber"
   :group 'sink
   :init-value nil
